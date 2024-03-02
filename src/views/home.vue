@@ -91,7 +91,7 @@ export default {
 		}
 
 		// 创建灯光
-		let hemisphereLight, shadowLight
+		let hemisphereLight, shadowLight, ambientLight
 		function createLights() {
 			// 创建半球光
 			hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x000000, .9)
@@ -113,8 +113,12 @@ export default {
 			shadowLight.shadow.mapSize.width = 2048
 			shadowLight.shadow.mapSize.height = 2048
 
+			// 创建环境光
+			ambientLight = new THREE.AmbientLight(0xdc8874, .5);
+
 			scene.add(hemisphereLight)
 			scene.add(shadowLight)
+			scene.add(ambientLight)
 		}
 
 		// 创建海洋
@@ -122,18 +126,56 @@ export default {
 		Sea = function() {
 			const geom = new THREE.CylinderGeometry(600, 600, 800, 40, 10)
 			// 在X轴旋转几何体
-			geom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI/2))
+			geom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
+			geom.mergeVertices()
+			var l = geom.vertices.length
+			this.waves = []
+
+			for (var i = 0; i < l; i++){
+				var v = geom.vertices[i]
+
+				// store some data associated to it
+				this.waves.push({
+					y:v.y,
+					x:v.x,
+					z:v.z,
+					// a random angle
+					ang: Math.random() * Math.PI * 2,
+					// a random distance
+					amp: 5 + Math.random() * 15,
+					// a random speed between 0.016 and 0.048 radians / frame
+					speed: 0.016 + Math.random() * 0.032
+				})
+			}
 			// 创建材质
 			let mat = new THREE.MeshPhongMaterial({
 				color: Colors.blue,
-				transparent:true,
-				opacity:.6,
+				transparent: true,
+				opacity: .6,
 				shading: THREE.FlatShading
 			})
 
 			this.mesh = new THREE.Mesh(geom, mat)
 			// 是否接受阴影
 			this.mesh.receiveShadow = true
+		}
+		Sea.prototype.moveWaves = function () {
+			var verts = this.mesh.geometry.vertices
+			var l = verts.length;
+			
+			for (var i = 0; i < l; i++){
+				var v = verts[i]
+				var vprops = this.waves[i]
+				v.x = vprops.x + Math.cos(vprops.ang)*vprops.amp
+				v.y = vprops.y + Math.sin(vprops.ang)*vprops.amp
+
+				// increment the angle for the next frame
+				vprops.ang += vprops.speed;
+
+			}
+			this.mesh.geometry.verticesNeedUpdate=true
+
+			sea.mesh.rotation.z += .005
 		}
 		let sea
 		function createSea() {
@@ -291,6 +333,11 @@ export default {
 			this.propeller.add(blade)
 			this.propeller.position.set(50, 0, 0)
 			this.mesh.add(this.propeller)
+			
+			// 飞行员
+			this.pilot = new Pilot()
+			this.pilot.mesh.position.set(-10,27,0)
+			this.mesh.add(this.pilot.mesh)
 		};
 
 		let airplane
@@ -304,7 +351,9 @@ export default {
 		function loop(){
 			airplane.propeller.rotation.x += 0.3
 			sea.mesh.rotation.z += .005
+			sea.moveWaves()
 			sky.mesh.rotation.z += .01
+			airplane.pilot.updateHairs()
 			renderer.render(scene, camera)
 			// 更新飞机位置
 			updatePlane()
@@ -330,12 +379,12 @@ export default {
 		}
 
 		function updatePlane(){
-			
-			let targetX = normalize(mousePos.x, -1, 1, -100, 100)
-			let targetY = normalize(mousePos.y, -1, 1, 25, 175)
+			let targetY = normalize(mousePos.y,-.75,.75,25, 175)
+			let targetX = normalize(mousePos.x,-.75,.75,-100, 100)
 
-			airplane.mesh.position.y = targetY
-			airplane.mesh.position.x = targetX
+			airplane.mesh.position.y += (targetY-airplane.mesh.position.y)*0.1
+			airplane.mesh.rotation.z = (targetY-airplane.mesh.position.y) * 0.0128
+			airplane.mesh.rotation.x = (airplane.mesh.position.y-targetY) * 0.0064
 			airplane.propeller.rotation.x += 0.3
 		}
 
@@ -347,6 +396,107 @@ export default {
 			let dt = tmax - tmin
 			let tv = tmin + (pc * dt)
 			return tv
+		}
+
+		let Pilot = function() {
+			this.mesh = new THREE.Object3D()
+			this.mesh.name = 'pilot'
+
+			this.angleHairs = 0
+
+			// 飞行员身体 
+			let bodyGeom = new THREE.BoxGeometry(15,15, 15)
+			let bodyMat = new THREE.MeshPhongMaterial({
+				color:Colors.brown,
+				shading:THREE.FlatShading
+			})
+			let body = new THREE.Mesh(bodyGeom, bodyMat)
+			body.position.set(2, -12, 0)
+			this.mesh.add(body)
+
+			// 脸部
+			let faceGeom = new THREE.BoxGeometry(10, 10, 10)
+			let faceMat = new THREE.MeshLambertMaterial({
+				color:Colors.pink
+			})
+			let face = new THREE.Mesh(faceGeom, faceMat)
+			this.mesh.add(face)
+
+			// 头发
+			let hairGeom = new THREE.BoxGeometry(4, 4, 4)
+			let hairMat = new THREE.MeshLambertMaterial({
+				color: Colors.brown
+			})
+			let hair = new THREE.Mesh(hairGeom, hairMat)
+			hair.geometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, 2, 0))
+
+			// 头发容器
+			let hairs = new THREE.Object3D()
+			this.hairsTop = new THREE.Object3D()
+
+			for (let i = 0; i < 12; i++){
+				let h = hair.clone()
+				let col = i % 3
+				let row = Math.floor(i / 3)
+				let startPosZ = -4
+				let startPosX = -4
+				h.position.set(startPosX + row*4, 0, startPosZ + col*4)
+				this.hairsTop.add(h)
+			}
+			hairs.add(this.hairsTop)
+
+			// 创建脸部头发
+			let hairSideGeom = new THREE.BoxGeometry(12,4,2);
+			hairSideGeom.applyMatrix(new THREE.Matrix4().makeTranslation(-6,0,0));
+			let hairSideR = new THREE.Mesh(hairSideGeom, hairMat);
+			let hairSideL = hairSideR.clone();
+			hairSideR.position.set(8,-2,6);
+			hairSideL.position.set(8,-2,-6);
+			hairs.add(hairSideR);
+			hairs.add(hairSideL);
+
+			// 创建后面头发
+			let hairBackGeom = new THREE.BoxGeometry(2,8,10);
+			let hairBack = new THREE.Mesh(hairBackGeom, hairMat);
+			hairBack.position.set(-1,-4,0)
+			hairs.add(hairBack);
+			hairs.position.set(-5,5,0);
+
+			this.mesh.add(hairs);
+
+			let glassGeom = new THREE.BoxGeometry(5,5,5);
+			let glassMat = new THREE.MeshLambertMaterial({color:Colors.brown});
+			let glassR = new THREE.Mesh(glassGeom,glassMat);
+			glassR.position.set(6,0,3);
+			var glassL = glassR.clone();
+			glassL.position.z = -glassR.position.z
+
+			var glassAGeom = new THREE.BoxGeometry(11,1,11);
+			var glassA = new THREE.Mesh(glassAGeom, glassMat);
+			this.mesh.add(glassR);
+			this.mesh.add(glassL);
+			this.mesh.add(glassA);
+
+			var earGeom = new THREE.BoxGeometry(2,3,2);
+			var earL = new THREE.Mesh(earGeom,faceMat);
+			earL.position.set(0,0,-6);
+			var earR = earL.clone();
+			earR.position.set(0,0,6);
+			this.mesh.add(earL);
+			this.mesh.add(earR);
+
+		}
+
+		// 移动头发
+		Pilot.prototype.updateHairs = function() {
+			let hairs = this.hairsTop.children
+
+			let l = hairs.length
+			for (let i = 0; i < l; i++){
+				let h = hairs[i];
+				h.scale.y = .75 + Math.cos(this.angleHairs+i/3)*.25
+			}
+			this.angleHairs += 0.16
 		}
 	}
 }
