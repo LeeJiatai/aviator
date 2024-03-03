@@ -49,7 +49,7 @@ function AirPlane() {
     this.mesh.add(tailPlane)
 
     // 翅膀
-    let geomSideWing = new THREE.BoxGeometry(40, 8, 150, 1, 1, 1)
+    let geomSideWing = new THREE.BoxGeometry(30, 5, 120, 1, 1, 1)
     let matSideWing = new THREE.MeshPhongMaterial({
         color:Colors.red,
         shading:THREE.FlatShading
@@ -59,29 +59,107 @@ function AirPlane() {
     sideWing.receiveShadow = true
     this.mesh.add(sideWing)
 
+    // 挡风玻璃
+    let geomWindshield = new THREE.BoxGeometry(3, 15, 20, 1, 1, 1)
+    let matWindshield = new THREE.MeshPhongMaterial({
+        color: Colors.red,
+        transparent: true,
+        opacity: .3,
+        shading: THREE.FlatShading
+    })
+    let windshield = new THREE.Mesh(geomWindshield, matWindshield)
+    windshield.position.set(15, 27, 0)
+    windshield.castShadow = true
+    windshield.receiveShadow = true
+    this.mesh.add(windshield)
+
     // 螺旋桨
-    let geomPropeller = new THREE.BoxGeometry(20, 10, 10, 1, 1,1 )
+    let geomPropeller = new THREE.BoxGeometry(20, 10, 10, 1, 1, 1);
+    geomPropeller.vertices[4].y -= 5
+    geomPropeller.vertices[4].z += 5
+    geomPropeller.vertices[5].y -= 5
+    geomPropeller.vertices[5].z -= 5
+    geomPropeller.vertices[6].y += 5
+    geomPropeller.vertices[6].z += 5
+    geomPropeller.vertices[7].y += 5
+    geomPropeller.vertices[7].z -= 5
     let matPropeller = new THREE.MeshPhongMaterial({
-        color:Colors.brown,
-        shading:THREE.FlatShading
+        color: Colors.red,
+        shading: THREE.FlatShading
     })
     this.propeller = new THREE.Mesh(geomPropeller, matPropeller)
+  
     this.propeller.castShadow = true
     this.propeller.receiveShadow = true
 
     // 叶片
-    let geomBlade = new THREE.BoxGeometry(1, 100, 20, 1, 1, 1)
+    let geomBlade = new THREE.BoxGeometry(1, 80, 10, 1, 1, 1)
     let matBlade = new THREE.MeshPhongMaterial({
         color:Colors.brownDark,
         shading:THREE.FlatShading
     })
-    let blade = new THREE.Mesh(geomBlade, matBlade);
-    blade.position.set(8,0,0)
-    blade.castShadow = true
-    blade.receiveShadow = true
-    this.propeller.add(blade)
-    this.propeller.position.set(50, 0, 0)
+    let blade1 = new THREE.Mesh(geomBlade, matBlade)
+    blade1.position.set(8, 0, 0)
+
+    blade1.castShadow = true
+    blade1.receiveShadow = true
+
+    let blade2 = blade1.clone()
+    blade2.rotation.x = Math.PI / 2
+
+    blade2.castShadow = true
+    blade2.receiveShadow = true
+
+    this.propeller.add(blade1)
+    this.propeller.add(blade2)
+    this.propeller.position.set(60 ,0, 0)
     this.mesh.add(this.propeller)
+
+    // 起落架
+    let wheelProtecGeom = new THREE.BoxGeometry(30, 15, 10, 1, 1, 1)
+    let wheelProtecMat = new THREE.MeshPhongMaterial({
+        color: Colors.red,
+        shading: THREE.FlatShading
+    })
+    let wheelProtecR = new THREE.Mesh(wheelProtecGeom, wheelProtecMat)
+    wheelProtecR.position.set(25, -20, 25)
+    this.mesh.add(wheelProtecR)
+
+    let wheelTireGeom = new THREE.BoxGeometry(24, 24, 4)
+    let wheelTireMat = new THREE.MeshPhongMaterial({
+        color: Colors.brownDark,
+        shading: THREE.FlatShading
+    })
+    let wheelTireR = new THREE.Mesh(wheelTireGeom,wheelTireMat)
+    wheelTireR.position.set(25, -28, 25)
+
+    let wheelAxisGeom = new THREE.BoxGeometry(10,10,6);
+    let wheelAxisMat = new THREE.MeshPhongMaterial({color:Colors.brown, shading:THREE.FlatShading});
+    let wheelAxis = new THREE.Mesh(wheelAxisGeom,wheelAxisMat);
+    wheelTireR.add(wheelAxis);
+
+    this.mesh.add(wheelTireR);
+
+    let wheelProtecL = wheelProtecR.clone()
+    wheelProtecL.position.z = -wheelProtecR.position.z
+    this.mesh.add(wheelProtecL)
+
+    let wheelTireL = wheelTireR.clone();
+    wheelTireL.position.z = -wheelTireR.position.z;
+    this.mesh.add(wheelTireL);
+
+    let wheelTireB = wheelTireR.clone();
+    wheelTireB.scale.set(.5,.5,.5);
+    wheelTireB.position.set(-35,-5,0);
+    this.mesh.add(wheelTireB);
+
+    let suspensionGeom = new THREE.BoxGeometry(4,20,4);
+    suspensionGeom.applyMatrix(new THREE.Matrix4().makeTranslation(0,10,0))
+    let suspensionMat = new THREE.MeshPhongMaterial({color:Colors.red, shading:THREE.FlatShading});
+    let suspension = new THREE.Mesh(suspensionGeom,suspensionMat);
+    suspension.position.set(-35,-5,0);
+    suspension.rotation.z = -.3;
+    this.mesh.add(suspension);
     
     // 飞行员
     this.pilot = new Pilot()
@@ -168,19 +246,19 @@ function Pilot() {
     let glassMat = new THREE.MeshLambertMaterial({color:Colors.brown});
     let glassR = new THREE.Mesh(glassGeom,glassMat);
     glassR.position.set(6,0,3);
-    var glassL = glassR.clone();
+    let glassL = glassR.clone();
     glassL.position.z = -glassR.position.z
 
-    var glassAGeom = new THREE.BoxGeometry(11,1,11);
-    var glassA = new THREE.Mesh(glassAGeom, glassMat);
+    let glassAGeom = new THREE.BoxGeometry(11,1,11);
+    let glassA = new THREE.Mesh(glassAGeom, glassMat);
     this.mesh.add(glassR);
     this.mesh.add(glassL);
     this.mesh.add(glassA);
 
-    var earGeom = new THREE.BoxGeometry(2,3,2);
-    var earL = new THREE.Mesh(earGeom,faceMat);
+    let earGeom = new THREE.BoxGeometry(2,3,2);
+    let earL = new THREE.Mesh(earGeom,faceMat);
     earL.position.set(0,0,-6);
-    var earR = earL.clone();
+    let earR = earL.clone();
     earR.position.set(0,0,6);
     this.mesh.add(earL);
     this.mesh.add(earR);
