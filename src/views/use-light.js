@@ -28,4 +28,6 @@ export default function useLight(scene) {
     scene.add(hemisphereLight)
     scene.add(shadowLight)
     scene.add(ambientLight)
+
+    return ambientLight
 }
